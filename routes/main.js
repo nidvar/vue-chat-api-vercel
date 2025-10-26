@@ -166,9 +166,9 @@ export const routes = function(app){
                 { expiresIn: '10m' }
             );
     
-            res.cookie('token', token, { httpOnly: true, maxAge: 1000 * 60 * 60 * 24 });
-            res.cookie('email', user.email, { httpOnly: true });
-            res.cookie('username', user.username, { httpOnly: true });
+            res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'None', maxAge: 1000 * 60 * 60 * 24 });
+            res.cookie('email', user.email, { httpOnly: true, secure: true, sameSite: 'None' });
+            res.cookie('username', user.username, { httpOnly: true, secure: true, sameSite: 'None' });
     
             return res.json({ loggedIn: true });
     
@@ -212,23 +212,23 @@ export const routes = function(app){
         }
     })
 
-    app.get('/logout', (req, res)=>{
+    app.get('/logout', (req, res) => {
         res.clearCookie('token', {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'None',
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
         });
         res.clearCookie('email', {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'None',
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
         });
         res.clearCookie('username', {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'None',
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
         });
-        return res.json({message: 'logged out'});
+        return res.json({ message: 'logged out' });
     });
     
     app.get('/debug-cookies', (req, res) => {
