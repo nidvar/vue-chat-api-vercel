@@ -1,12 +1,18 @@
+// config/db.js
 import mongoose from 'mongoose';
 
-export const connectDB = async ()=>{
-    try{
-        mongoose.set('strictQuery', false);
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log('===============================================');
-        console.log('welcome to database: ', mongoose.connection.name);
-    }catch(error){
-        console.log(error);
+export const connectDB = async () => {
+  try {
+    if (!process.env.MONGO_URI) {
+      throw new Error('MONGO_URI is not set');
     }
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('MongoDB connected ✅');
+  } catch (err) {
+    console.error('MongoDB connection error ❌:', err.message);
+    process.exit(1); // stop the server if DB connection fails
+  }
 };
