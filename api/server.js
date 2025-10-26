@@ -1,43 +1,41 @@
 import express from 'express';
-import cors from 'cors';
 import * as dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import { connectDB } from '../config/db.js'; // cached connection pattern
+import { connectDB } from '../config/db.js';
 import { routes } from '../routes/main.js';
 
 dotenv.config();
 
 const app = express();
 
-// Allowed frontend origins
-const allowedOrigins = [
-  'https://mevn-blog.vercel.app',
-  'http://localhost:5173',
-];
+// Frontend origin
+const FRONTEND_ORIGIN = 'https://mevn-blog.vercel.app';
 
-// CORS middleware
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (e.g., curl, Postman, mobile)
-      if (!origin) return callback(null, true);
+// --- Preflight & CORS middleware ---
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', FRONTEND_ORIGIN);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET,POST,PUT,DELETE,OPTIONS'
+  );
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+  );
 
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, false); // reject disallowed origins
-      }
-    },
-    credentials: true,
-  })
-);
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
 
+// --- Middleware ---
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Connect to MongoDB before handling requests
-// In serverless, this will reuse cached connection
+// --- MongoDB connection (cached) ---
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -47,10 +45,10 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Register routes
+// --- Routes ---
 routes(app);
 
-// Error handling middleware
+// --- Error handling ---
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: err.message || 'Internal Server Error' });
