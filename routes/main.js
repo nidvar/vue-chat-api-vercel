@@ -10,17 +10,17 @@ dotenv.config();
 export const routes = function(app){
 
     const authMiddleware = async function(req, res, next){
-        const token = req.cookies.token;
-        if(!token){
-            return res.json({message: 'no token'});
-        };
         try {
+            const token = req.cookies.token;
+            if(!token){
+                return res.status(401).json({message: 'No token'});
+            }
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             req.user = decoded;
             next();
         } catch (err) {
-            console.log(err);
-            return res.json({authenticated: false});
+            console.error('Auth error:', err);
+            return res.status(401).json({authenticated: false, error: err.message});
         }
     };
 
@@ -94,21 +94,22 @@ export const routes = function(app){
         res.json(data);
     });
 
-    app.post('/create', authMiddleware,  async (req, res)=>{
-        try{
+    app.post('/create', authMiddleware, async (req, res) => {
+        try {
             const payload = {
-                title: req.body.title, 
+                title: req.body.title,
                 body: req.body.body,
                 email: req.cookies.email,
                 username: req.cookies.username
             };
             await Post.create(payload);
-            res.json({ message: 'blog created'});
-        }catch(error){
-            console.log(error);
-            return res.json({ message: error});
+            return res.json({ message: 'Blog created' });
+        } catch(err) {
+            console.error('Create blog error:', err);
+            return res.status(500).json({ error: err.message });
         }
     });
+
 
     app.put('/update', authMiddleware, async (req, res)=>{
         const post = await Post.findOne({ _id: req.body.id})
@@ -143,43 +144,40 @@ export const routes = function(app){
         }
     });
 
-    app.post('/login', async (req, res)=>{
-        try{
-            const user = await User.findOne({email:req.body.email});
-            if(user == null){
-                return res.json({loggedIn: false, error:'no user found'});
-            }else{
-                const validatePassword = await bcrypt.compare(req.body.password, user.password);
-                if(!validatePassword){
-                    return res.json({loggedIn: false, error: 'Incorrect password'})
-                };
-                const token = jwt.sign({email: user.email, userId: user._id}, process.env.JWT_SECRET, {expiresIn: '10m'});
-
-                res.cookie('token', token, {
-                  httpOnly: true,
-                  secure: true,
-                  sameSite: 'None',
-                  maxAge: 1000 * 60 * 60 * 24,
-                });
-                
-                res.cookie('email', req.body.email, {
-                  httpOnly: true,
-                  secure: true,
-                  sameSite: 'None',
-                });
-                
-                res.cookie('username', user.username, {
-                  httpOnly: true,
-                  secure: true,
-                  sameSite: 'None',
-                });
-                return res.json({loggedIn: true});
-            };
-        }catch(err){
-            console.log(err);
-            return res.json(err);
+    app.post('/login', async (req, res) => {
+        try {
+            const user = await User.findOne({ email: req.body.email });
+            if(!user){
+                return res.status(404).json({ loggedIn: false, error: 'No user found' });
+            }
+    
+            const valid = await bcrypt.compare(req.body.password, user.password);
+            if(!valid){
+                return res.status(401).json({ loggedIn: false, error: 'Incorrect password' });
+            }
+    
+            if(!process.env.JWT_SECRET){
+                return res.status(500).json({ loggedIn: false, error: 'JWT_SECRET missing' });
+            }
+    
+            const token = jwt.sign(
+                { email: user.email, userId: user._id }, 
+                process.env.JWT_SECRET, 
+                { expiresIn: '10m' }
+            );
+    
+            res.cookie('token', token, { httpOnly: true, maxAge: 1000 * 60 * 60 * 24 });
+            res.cookie('email', user.email, { httpOnly: true });
+            res.cookie('username', user.username, { httpOnly: true });
+    
+            return res.json({ loggedIn: true });
+    
+        } catch(err) {
+            console.error('Login error:', err);
+            return res.status(500).json({ error: err.message });
         }
     });
+
 
     app.post('/register', async (req, res)=>{
         const emailExists = await User.findOne({email:req.body.email});
