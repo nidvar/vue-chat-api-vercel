@@ -9,24 +9,20 @@ dotenv.config();
 
 export const routes = function(app){
 
-const authMiddleware = async (req, res, next) => {
-  try {
-    const token = req.cookies.token;
-    if (!token) return res.status(401).json({ authenticated: false, message: 'No token' });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    console.error('Auth error:', err);
-    return res.status(401).json({ authenticated: false, error: err.message });
-  }
-};
-
-app.get('/auth', authMiddleware, (req, res) => {
-  return res.json({ authenticated: true, email: req.user.email });
-});
-
+    const authMiddleware = async function(req, res, next){
+        const token = req.cookies.token;
+        if(!token){
+            return res.json({message: 'no token'});
+        };
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            req.user = decoded;
+            next();
+        } catch (err) {
+            console.log(err);
+            return res.json({authenticated: false});
+        }
+    };
 
     app.get('/auth', authMiddleware, (req, res)=>{
         return res.json({authenticated: true, email: req.user.email});
@@ -98,22 +94,21 @@ app.get('/auth', authMiddleware, (req, res) => {
         res.json(data);
     });
 
-    app.post('/create', authMiddleware, async (req, res) => {
-        try {
+    app.post('/create', authMiddleware,  async (req, res)=>{
+        try{
             const payload = {
-                title: req.body.title,
+                title: req.body.title, 
                 body: req.body.body,
                 email: req.cookies.email,
                 username: req.cookies.username
             };
             await Post.create(payload);
-            return res.json({ message: 'Blog created' });
-        } catch(err) {
-            console.error('Create blog error:', err);
-            return res.status(500).json({ error: err.message });
+            res.json({ message: 'blog created'});
+        }catch(error){
+            console.log(error);
+            return res.json({ message: error});
         }
     });
-
 
     app.put('/update', authMiddleware, async (req, res)=>{
         const post = await Post.findOne({ _id: req.body.id})
@@ -148,52 +143,43 @@ app.get('/auth', authMiddleware, (req, res) => {
         }
     });
 
-app.post('/login', async (req, res) => {
-  try {
-    const user = await User.findOne({ email: req.body.email });
-    if (!user) return res.status(404).json({ loggedIn: false, error: 'No user found' });
+    app.post('/login', async (req, res)=>{
+        try{
+            const user = await User.findOne({email:req.body.email});
+            if(user == null){
+                return res.json({loggedIn: false, error:'no user found'});
+            }else{
+                const validatePassword = await bcrypt.compare(req.body.password, user.password);
+                if(!validatePassword){
+                    return res.json({loggedIn: false, error: 'Incorrect password'})
+                };
+                const token = jwt.sign({email: user.email, userId: user._id}, process.env.JWT_SECRET, {expiresIn: '10m'});
 
-    const valid = await bcrypt.compare(req.body.password, user.password);
-    if (!valid) return res.status(401).json({ loggedIn: false, error: 'Incorrect password' });
-
-    if (!process.env.JWT_SECRET) return res.status(500).json({ loggedIn: false, error: 'JWT_SECRET missing' });
-
-    const token = jwt.sign(
-      { email: user.email, userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '10m' }
-    );
-
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'None' : 'Lax',
-      maxAge: 1000 * 60 * 60 * 24, // 1 day
+                res.cookie('token', token, {
+                  httpOnly: true,
+                  secure: true,
+                  sameSite: 'None',
+                  maxAge: 1000 * 60 * 60 * 24,
+                });
+                
+                res.cookie('email', req.body.email, {
+                  httpOnly: true,
+                  secure: true,
+                  sameSite: 'None',
+                });
+                
+                res.cookie('username', user.username, {
+                  httpOnly: true,
+                  secure: true,
+                  sameSite: 'None',
+                });
+                return res.json({loggedIn: true});
+            };
+        }catch(err){
+            console.log(err);
+            return res.json(err);
+        }
     });
-
-    res.cookie('email', user.email, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'None' : 'Lax',
-    });
-
-    res.cookie('username', user.username, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'None' : 'Lax',
-    });
-
-    return res.json({ loggedIn: true });
-
-  } catch (err) {
-    console.error('Login error:', err);
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-
 
     app.post('/register', async (req, res)=>{
         const emailExists = await User.findOne({email:req.body.email});
@@ -228,26 +214,22 @@ app.post('/login', async (req, res) => {
         }
     })
 
-    app.get('/logout', (req, res) => {
+    app.get('/logout', (req, res)=>{
         res.clearCookie('token', {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'None',
+          httpOnly: true,
+          secure: true,
+          sameSite: 'None',
         });
         res.clearCookie('email', {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'None',
+          httpOnly: true,
+          secure: true,
+          sameSite: 'None',
         });
         res.clearCookie('username', {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'None',
+          httpOnly: true,
+          secure: true,
+          sameSite: 'None',
         });
-        return res.json({ message: 'logged out' });
-    });
-    
-    app.get('/debug-cookies', (req, res) => {
-      res.json({ cookies: req.cookies });
+        return res.json({message: 'logged out'});
     });
 };
