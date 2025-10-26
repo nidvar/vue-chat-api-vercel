@@ -12,15 +12,17 @@ const app = express();
 
 const allowedOrigins = ['https://mevn-blog.vercel.app', 'http://localhost:5173'];
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin) return callback(null, true); // for tools like Postman
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
   },
-  credentials: true,
+  credentials: true, // if you're using cookies/auth headers
 }));
 
 app.use(cookieParser());
