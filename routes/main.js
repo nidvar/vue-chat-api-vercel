@@ -230,4 +230,8 @@ export const routes = function(app){
         });
         return res.json({message: 'logged out'});
     });
+    
+    app.get('/debug-cookies', (req, res) => {
+      res.json({ cookies: req.cookies });
+    });
 };
