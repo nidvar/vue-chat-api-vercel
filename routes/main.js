@@ -11,16 +11,17 @@ export const routes = function(app){
 
     const authMiddleware = async function(req, res, next){
         const token = req.cookies.token;
-        if(!token){
-            return res.json({message: 'no token'});
-        };
+        if (!token) {
+          return res.status(401).json({ authenticated: false, message: 'No token' });
+        }
+        
         try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            req.user = decoded;
-            next();
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          req.user = decoded;
+          next();
         } catch (err) {
-            console.log(err);
-            return res.json({authenticated: false});
+          console.log(err);
+          return res.status(401).json({ authenticated: false, message: 'Invalid token' });
         }
     };
 
@@ -184,18 +185,21 @@ export const routes = function(app){
     app.post('/register', async (req, res)=>{
         const emailExists = await User.findOne({email:req.body.email});
         const usernameExists = await User.findOne({username:req.body.username});
-        if(emailExists == null || usernameExists == null){
-            const hashedPassword = await bcrypt.hash(req.body.password, 10);
-            await User.create(
-                {
-                    username: req.body.username, 
-                    password: hashedPassword, 
-                    admin: false,
-                    email: req.body.email,
-                    profilePic: req.body.profilePic
-                }
-            );
-            res.json({ message: 'user created'});
+
+        if (emailExists || usernameExists) {
+          return res.json({ message: 'user exists' });
+        }
+        
+        const hashedPassword = await bcrypt.hash(req.body.password, 10);
+        await User.create({
+          username: req.body.username,
+          password: hashedPassword,
+          admin: false,
+          email: req.body.email,
+          profilePic: req.body.profilePic,
+        });
+        res.json({ message: 'user created' });
+
         }else{
             return res.json({message: 'user exists'});
         }
