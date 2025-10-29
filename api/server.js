@@ -16,22 +16,41 @@ const allowedOrigins = [
   /^https:\/\/mevn-blog\.vercel\.app$/ // your production domain
 ];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      return callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true, // if you're using cookies/auth headers
-}));
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow requests with no origin (server-to-server, curl)
+      if (!origin) return callback(null, true);
+
+      const isAllowed = allowedOrigins.some(o =>
+        typeof o === 'string' ? o === origin : o.test(origin)
+      );
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`❌ CORS blocked for origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+  })
+);
+
+// Always handle preflight OPTIONS requests
+app.options('*', cors());
 
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ error: 'CORS denied', origin: req.headers.origin });
+  }
+  next(err);
+});
+
 
 routes(app);
 
