@@ -10,30 +10,20 @@ connectDB();
 
 const app = express();
 
-// Allowed origins
-const allowedOrigins = [
-  'http://localhost:5173', 
-  'https://mevn-blog.vercel.app'
-];
+const allowedOrigins = ['https://mevn-blog.vercel.app', 'http://localhost:5173'];
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow server-to-server requests or curl (no origin)
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-
-    // Check if origin matches any allowed
-    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
     }
-
-    console.warn('❌ CORS blocked for origin:', origin);
-    return callback(new Error('Not allowed by CORS'));
   },
-  credentials: true
+  credentials: true, // if you're using cookies/auth headers
 }));
-
-// Always handle preflight requests
-app.options('*', cors({ credentials: true, origin: true }));
 
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
